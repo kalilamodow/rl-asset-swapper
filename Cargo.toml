@@ -1,0 +1,18 @@
+[package]
+name = "upk-swapper"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rlbuddy-upk-swapper = { git = "https://github.com/kalilamodow/rlbuddy.git" }
+eframe = "0.36.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.50"
+web-sys = "0.3.70"
+
+[profile.release]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 2
