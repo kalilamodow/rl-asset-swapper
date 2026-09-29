@@ -1,3 +1,4 @@
+use crate::items::{Item, fetch_items};
 use eframe::egui;
 use egui_async::{Bind, StateWithData, egui::AsyncButton};
 use rfd::FileHandle;
@@ -8,9 +9,21 @@ struct AppState {
     replacement_upk: Bind<Option<FileHandle>, ()>,
 }
 
+#[derive(Debug)]
+enum AppStage {
+    LoadingItems(Bind<Vec<Item>, anyhow::Error>),
+    SelectingItems { all_items: Vec<Item> },
+}
+
+impl Default for AppStage {
+    fn default() -> Self {
+        Self::LoadingItems(Bind::new(true))
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct UpkSwapperApp {
-    state: AppState,
+    stage: AppStage,
 }
 
 impl UpkSwapperApp {
@@ -29,8 +42,21 @@ impl eframe::App for UpkSwapperApp {
             ui.heading("upk swapper");
             ui.separator();
 
-            ui.strong("Appearance file");
-            file_picker_button(ui, &mut self.state.appearance_upk);
+            match &mut self.stage {
+                AppStage::LoadingItems(bind) => {
+                    ui.spinner();
+                    ui.label("Loading items...");
+
+                    if let Some(result) = bind.read_or_request_or_error(fetch_items, ui) {
+                        self.stage = AppStage::SelectingItems {
+                            all_items: result.clone(),
+                        }
+                    }
+                }
+                AppStage::SelectingItems { all_items } => {
+                    ui.label(format!("qty items: {}", all_items.len()));
+                }
+            }
         });
     }
 }
