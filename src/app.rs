@@ -1,18 +1,24 @@
-use crate::items::{Item, fetch_items};
+use crate::items::{Item, ItemSlot, fetch_items};
 use eframe::egui;
 use egui_async::{Bind, StateWithData, egui::AsyncButton};
 use rfd::FileHandle;
 
 #[derive(Debug, Default)]
-struct AppState {
-    appearance_upk: Bind<Option<FileHandle>, ()>,
-    replacement_upk: Bind<Option<FileHandle>, ()>,
+struct ChoosingState {
+    search_appearance: String,
+    chosen_appearance: Option<Item>,
+    search_replaced: String,
+    chosen_replaced: Option<Item>,
+    slot_filter: ItemSlot,
 }
 
 #[derive(Debug)]
 enum AppStage {
     LoadingItems(Bind<Vec<Item>, anyhow::Error>),
-    SelectingItems { all_items: Vec<Item> },
+    Choosing {
+        all_items: Vec<Item>,
+        state: ChoosingState,
+    },
 }
 
 impl Default for AppStage {
@@ -48,17 +54,88 @@ impl eframe::App for UpkSwapperApp {
                     ui.label("Loading items...");
 
                     if let Some(result) = bind.read_or_request_or_error(fetch_items, ui) {
-                        self.stage = AppStage::SelectingItems {
+                        self.stage = AppStage::Choosing {
                             all_items: result.clone(),
+                            state: ChoosingState::default(),
                         }
                     }
                 }
-                AppStage::SelectingItems { all_items } => {
-                    ui.label(format!("qty items: {}", all_items.len()));
+                AppStage::Choosing { all_items, state } => {
+                    egui::ComboBox::from_label("Slot filter")
+                        .selected_text(state.slot_filter.as_str())
+                        .show_ui(ui, |ui| {
+                            for slot in &[
+                                ItemSlot::Antenna,
+                                ItemSlot::Body,
+                                ItemSlot::Boost,
+                                ItemSlot::Decal,
+                                ItemSlot::Explosion,
+                                ItemSlot::PaintFinish,
+                                ItemSlot::Topper,
+                                ItemSlot::Trail,
+                                ItemSlot::Wheel,
+                            ] {
+                                ui.selectable_value(&mut state.slot_filter, *slot, slot.as_str());
+                            }
+                        });
+
+                    ui.add_space(8.0);
+
+                    item_select(
+                        ui,
+                        "Replaced Item",
+                        &mut state.search_replaced,
+                        state.slot_filter,
+                        &mut state.chosen_replaced,
+                        all_items,
+                    );
+                    item_select(
+                        ui,
+                        "Appearance Item",
+                        &mut state.search_appearance,
+                        state.slot_filter,
+                        &mut state.chosen_appearance,
+                        all_items,
+                    );
                 }
             }
         });
     }
+}
+
+fn item_select(
+    ui: &mut egui::Ui,
+    text: &str,
+    search: &mut String,
+    filter: ItemSlot,
+    chosen: &mut Option<Item>,
+    items: &[Item],
+) {
+    ui.horizontal(|ui| {
+        ui.add(
+            egui::TextEdit::singleline(search)
+                .hint_text("Filter")
+                .desired_width(125.0),
+        );
+        egui::ComboBox::from_label(text)
+            .selected_text(chosen.as_ref().map(|a| a.name.as_str()).unwrap_or("None"))
+            .show_ui(ui, |ui| {
+                for item in items
+                    .iter()
+                    .filter(|i| i.slot == filter && i.name.to_lowercase().contains(search.as_str()))
+                {
+                    if ui
+                        .selectable_label(
+                            chosen.as_ref().map(|i| i.id) == Some(item.id),
+                            item.name.as_str(),
+                        )
+                        .clicked()
+                    {
+                        chosen.replace(item.clone());
+                    }
+                }
+            });
+    });
 }
 
 fn file_picker_button(ui: &mut egui::Ui, bind: &mut Bind<Option<FileHandle>, ()>) {

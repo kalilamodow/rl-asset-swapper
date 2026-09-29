@@ -22,7 +22,7 @@ impl ItemPackageName {
 }
 
 // there are more but this is just items
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ItemSlot {
     Antenna,
     Body,
