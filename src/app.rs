@@ -46,6 +46,8 @@ enum AppStage {
         chosen_replaced: Item,
         chosen_appearance: Item,
         upk_download: Vec<u8>,
+        write_to_file_handle_bind: Bind<Option<FileHandle>, ()>,
+        writing_to_file_bind: Bind<(), std::io::Error>, // just for the executor
     },
     Error(String),
 }
@@ -241,6 +243,9 @@ impl AppStage {
                 chosen_appearance,
                 appearance_file_contents,
             } => {
+                ui.label("Processing swap...");
+                ui.label("This takes a few seconds and will probably freeze the page.");
+
                 let replaced_key = RlAesKey::from_base64(&chosen_replaced.key).unwrap();
                 let replaced_upk = match Upk::new(
                     &mut Cursor::new(replaced_file_contents),
@@ -277,18 +282,70 @@ impl AppStage {
                     chosen_replaced,
                     chosen_appearance,
                     upk_download,
+                    write_to_file_handle_bind: Bind::default(),
+                    writing_to_file_bind: Bind::default(),
                 }
             }
             Self::Done {
                 chosen_replaced,
                 chosen_appearance,
-                upk_download,
+                mut upk_download,
+                mut write_to_file_handle_bind,
+                mut writing_to_file_bind,
             } => {
-                ui.strong("Swapped successfully!");
+                ui.label("Swapped successfully! First,");
+
+                {
+                    let filename = chosen_replaced.package.filename();
+                    AsyncButton::new(&mut write_to_file_handle_bind, "open the download prompt")
+                        .show(ui, || async move {
+                            Ok(rfd::AsyncFileDialog::new()
+                                .set_file_name(filename)
+                                .save_file()
+                                .await)
+                        });
+
+                    if let Some(Some(handle)) = write_to_file_handle_bind.take_ok() {
+                        let bytes = std::mem::take(&mut upk_download);
+                        let handle = handle.clone();
+                        writing_to_file_bind.request(async move { handle.write(&bytes).await });
+                    }
+                }
+
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Once it's downloaded, go to the ");
+                    ui.strong("CookedPCConsole");
+                    ui.label("folder within your game files.");
+                });
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Now, in the folder, find");
+                    ui.strong(chosen_replaced.package.filename());
+                    ui.label(", and rename it to");
+                    ui.strong(chosen_replaced.package.backup_filename());
+                    ui.label("(to back it up).");
+                });
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Finally, move the file you downloaded,");
+                    ui.strong(chosen_replaced.package.filename());
+                    ui.label(", into the CookedPCConsole.");
+                });
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Now, when Rocket League tries to load");
+                    ui.strong(chosen_replaced.package.filename());
+                    ui.label(", it actually loads the data in");
+                    ui.strong(&chosen_appearance.name);
+                    ui.label("! Pretty cool, right?");
+                });
+
                 Self::Done {
                     chosen_replaced,
                     chosen_appearance,
                     upk_download,
+                    write_to_file_handle_bind,
+                    writing_to_file_bind,
                 }
             }
             Self::Error(err) => {
@@ -394,5 +451,8 @@ fn file_picker_button(
 }
 
 async fn pick_file() -> Result<Option<FileHandle>, ()> {
-    Ok(rfd::AsyncFileDialog::new().pick_file().await)
+    Ok(rfd::AsyncFileDialog::new()
+        .add_filter("UPK File", &["upk"])
+        .pick_file()
+        .await)
 }
