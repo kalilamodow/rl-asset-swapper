@@ -249,7 +249,7 @@ impl AppStage {
                 let replaced_key = RlAesKey::from_base64(&chosen_replaced.key).unwrap();
                 let replaced_upk = match Upk::new(
                     &mut Cursor::new(replaced_file_contents),
-                    &chosen_replaced.name,
+                    &chosen_replaced.package.name(),
                     &replaced_key,
                 ) {
                     Ok(u) => u,
@@ -261,7 +261,7 @@ impl AppStage {
                 let appearance_key = RlAesKey::from_base64(&chosen_appearance.key).unwrap();
                 let mut appearance_upk = match Upk::new(
                     &mut Cursor::new(appearance_file_contents),
-                    &chosen_appearance.name,
+                    &chosen_appearance.package.name(),
                     &appearance_key,
                 ) {
                     Ok(u) => u,
