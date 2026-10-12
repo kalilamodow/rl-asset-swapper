@@ -115,6 +115,13 @@ impl AppStage {
                     &all_items,
                 );
 
+                ui.add_space(8.0);
+                ui.hyperlink_to(
+                    "Link to Youtube tutorial",
+                    "https://www.youtube.com/watch?v=hZpFCGWrJN4",
+                );
+                ui.add_space(8.0);
+
                 if ui
                     .add_enabled(
                         state.chosen_replaced.is_some() && state.chosen_appearance.is_some(),
