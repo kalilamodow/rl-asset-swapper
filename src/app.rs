@@ -120,6 +120,10 @@ impl AppStage {
                     "Link to Youtube tutorial",
                     "https://www.youtube.com/watch?v=hZpFCGWrJN4",
                 );
+                ui.hyperlink_to(
+                    "See the source code!",
+                    "https://github.com/kalilamodow/rl-asset-swapper",
+                );
                 ui.add_space(8.0);
 
                 if ui
